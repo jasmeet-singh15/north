@@ -13,7 +13,8 @@ jobs:
       - run:
           name: Install Composer
           command: |
-            curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+            curl -sS https://getcomposer.org/installer | php -- --install-dir=/tmp --filename=composer
+            sudo mv /tmp/composer /usr/local/bin/  # Move composer to /usr/local/bin
 
       - run:
           name: Install PHP Dependencies
