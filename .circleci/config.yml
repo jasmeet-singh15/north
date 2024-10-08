@@ -1,70 +1,23 @@
 version: 2.1
 
+# Define the jobs we want to run for this project
 jobs:
   build:
     docker:
-      - image: circleci/php:8.0  # Change to the PHP version you are using
-      - image: circleci/node:14  # Include Node.js for frontend asset compilation
-
-    working_directory: ~/repo
+      - image: cimg/base:2023.03
     steps:
-      - checkout  # Check out the code from the repository
-
-      - run:
-          name: Install Composer
-          command: |
-            curl -sS https://getcomposer.org/installer | php -- --install-dir=/tmp --filename=composer
-            sudo mv /tmp/composer /usr/local/bin/  # Move composer to /usr/local/bin
-
-      - run:
-          name: Install PHP Dependencies
-          command: composer install --no-interaction --prefer-dist
-
-      - run:
-          name: Install Node.js Dependencies
-          command: |
-            npm install  # This installs dependencies listed in package.json
-
-      - run:
-          name: Build Frontend Assets
-          command: |
-            npm run build  # Replace with your build command, if different
-
-      - run:
-          name: Run Tests
-          command: php artisan test  # Run your tests
-
-      - persist_to_workspace:
-          root: ~/repo
-          paths:
-            - .  # Persist the entire workspace
-
-  deploy:
+      - checkout
+      - run: echo "this is the build job"
+  test:
     docker:
-      - image: circleci/php:8.0  # Use the same PHP version
-
-    working_directory: ~/repo
+      - image: cimg/base:2023.03
     steps:
-      - attach_workspace:
-          at: ~/repo
+      - checkout
+      - run: echo "this is the test job"
 
-      - run:
-          name: Deploy to AWS
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y awscli  # Install AWS CLI
-            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-            aws configure set default.region us-west-2  # Change to your desired region
-
-            # Deploy the code to your EC2 server using SSH
-            ssh -o StrictHostKeyChecking=no -i your-key.pem user@your-aws-server "cd /path/to/your/app && git pull origin main && composer install --no-interaction --prefer-dist && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
-
+# Orchestrate our job run sequence
 workflows:
-  version: 2
-  build_and_deploy:
+  build_and_test:
     jobs:
       - build
-      - deploy:
-          requires:
-            - build  # Deploy only after the build job succeeds
+      - test
