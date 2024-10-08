@@ -1,46 +1,63 @@
-version: 2.1  # Use CircleCI 2.1 configuration
+version: 2.1
 
 jobs:
   build:
     docker:
-      # Specify the Docker image to run your build in
-      - image: circleci/node:14.17.0  # You can use any version suitable for your project
+      - image: circleci/php:8.0  # Change to the PHP version you are using
+      - image: circleci/node:14  # Include Node.js for frontend asset compilation
 
-    working_directory: ~/repo  # Directory where commands will run
+    working_directory: ~/repo
     steps:
-      - checkout  # Pull down your code from the repository
+      - checkout  # Check out the code from the repository
 
       - run:
-          name: Install Dependencies
-          command: npm install
+          name: Install Composer
+          command: |
+            curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+      - run:
+          name: Install PHP Dependencies
+          command: composer install --no-interaction --prefer-dist
+
+      - run:
+          name: Install Node.js Dependencies
+          command: |
+            npm install  # This installs dependencies listed in package.json
+
+      - run:
+          name: Build Frontend Assets
+          command: |
+            npm run build  # Replace with your build command, if different
 
       - run:
           name: Run Tests
-          command: npm test
-
-      - run:
-          name: Build Project
-          command: npm run build
+          command: php artisan test  # Run your tests
 
       - persist_to_workspace:
           root: ~/repo
           paths:
-            - build  # Save the built project for later jobs
+            - .  # Persist the entire workspace
 
   deploy:
     docker:
-      - image: circleci/node:14.17.0
+      - image: circleci/php:8.0  # Use the same PHP version
 
     working_directory: ~/repo
     steps:
       - attach_workspace:
-          at: ~/repo  # Attach the workspace from the build job
+          at: ~/repo
 
       - run:
-          name: Deploy to Production
+          name: Deploy to AWS
           command: |
-            # Add your deployment script here, for example:
-            scp -r ./build/ user@your-server:/var/www/your-app
+            sudo apt-get update
+            sudo apt-get install -y awscli  # Install AWS CLI
+            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+            aws configure set default.region us-west-2  # Change to your desired region
+
+            # Deploy the code to your EC2 server using SSH
+            ssh -o StrictHostKeyChecking=no -i your-key.pem user@your-aws-server "cd /path/to/your/app && git pull origin main && composer install --no-interaction --prefer-dist && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
 
 workflows:
   version: 2
@@ -49,4 +66,4 @@ workflows:
       - build
       - deploy:
           requires:
-            - build  # Run deploy only after build succeeds
+            - build  # Deploy only after the build job succeeds
